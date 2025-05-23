@@ -1,248 +1,175 @@
-import React from 'react';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import Row from 'react-bootstrap/Row';
-import Col from 'react-bootstrap/Col';
-import Button from 'react-bootstrap/Button';
-import Form from 'react-bootstrap/Form';
-import Card from 'react-bootstrap/Card';
+import React, { useState, useEffect, useCallback } from 'react';
 import InvoiceItem from './InvoiceItem';
 import InvoiceModal from './InvoiceModal';
-import InputGroup from 'react-bootstrap/InputGroup';
+import '../invoice.css';
 
-class InvoiceForm extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      isOpen: false,
-      currency: '$',
-      currentDate: '',
-      invoiceNumber: 1,
-      dateOfIssue: '',
-      billTo: '',
-      billToEmail: '',
-      billToAddress: '',
-      billFrom: '',
-      billFromEmail: '',
-      billFromAddress: '',
-      notes: '',
-      total: '0.00',
-      subTotal: '0.00',
-      taxRate: '',
-      taxAmmount: '0.00',
-      discountRate: '',
-      discountAmmount: '0.00'
-    };
-    this.state.items = [
-      {
-        id: 0,
-        name: '',
-        description: '',
-        price: '1.00',
-        quantity: 1
-      }
-    ];
-    this.editField = this.editField.bind(this);
-  }
-  componentDidMount(prevProps) {
-    this.handleCalculateTotal()
-  }
-  handleRowDel(items) {
-    var index = this.state.items.indexOf(items);
-    this.state.items.splice(index, 1);
-    this.setState(this.state.items);
-  };
-  handleAddEvent(evt) {
-    var id = (+ new Date() + Math.floor(Math.random() * 999999)).toString(36);
-    var items = {
-      id: id,
-      name: '',
-      price: '1.00',
-      description: '',
-      quantity: 1
-    }
-    this.state.items.push(items);
-    this.setState(this.state.items);
-  }
-  handleCalculateTotal() {
-    var items = this.state.items;
-    var subTotal = 0;
+const InvoiceForm = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currency, setCurrency] = useState('₹');
+  const [dateOfIssue, setDateOfIssue] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState(1);
+  const [billTo, setBillTo] = useState('');
+  const [billToEmail, setBillToEmail] = useState('');
+  const [billToAddress, setBillToAddress] = useState('');
+  const [billFrom, setBillFrom] = useState('');
+  const [billFromEmail, setBillFromEmail] = useState('');
+  const [billFromAddress, setBillFromAddress] = useState('');
+  const [notes, setNotes] = useState('');
+  const [subTotal, setSubTotal] = useState('0.00');
+  const [taxRate, setTaxRate] = useState('');
+  const [taxAmmount, setTaxAmmount] = useState('0.00');
+  const [discountRate, setDiscountRate] = useState('');
+  const [discountAmmount, setDiscountAmmount] = useState('0.00');
+  const [total, setTotal] = useState('0.00');
 
-    items.map(function(items) {
-      subTotal = parseFloat(subTotal + (parseFloat(items.price).toFixed(2) * parseInt(items.quantity))).toFixed(2)
-    });
+  const [items, setItems] = useState([
+    { id: 0, name: '', description: '', price: '1.00', quantity: 1 }
+  ]);
 
-    this.setState({
-      subTotal: parseFloat(subTotal).toFixed(2)
-    }, () => {
-      this.setState({
-        taxAmmount: parseFloat(parseFloat(subTotal) * (this.state.taxRate / 100)).toFixed(2)
-      }, () => {
-        this.setState({
-          discountAmmount: parseFloat(parseFloat(subTotal) * (this.state.discountRate / 100)).toFixed(2)
-        }, () => {
-          this.setState({
-            total: ((subTotal - this.state.discountAmmount) + parseFloat(this.state.taxAmmount))
-          });
-        });
-      });
-    });
+  useEffect(() => {
+    calculateTotal();
+  }, [items, taxRate, discountRate]);
 
+  const editField = (setter) => (event) => {
+    setter(event.target.value);
   };
-  onItemizedItemEdit(evt) {
-    var item = {
-      id: evt.target.id,
-      name: evt.target.name,
-      value: evt.target.value
-    };
-    var items = this.state.items.slice();
-    var newItems = items.map(function(items) {
-      for (var key in items) {
-        if (key == item.name && items.id == item.id) {
-          items[key] = item.value;
-        }
-      }
-      return items;
-    });
-    this.setState({items: newItems});
-    this.handleCalculateTotal();
+
+  const handleAddItem = useCallback(() => {
+    const id = (new Date() + Math.floor(Math.random() * 999999)).toString(36);
+    setItems((prevItems) => [...prevItems, { id, name: '', description: '', price: '1.00', quantity: 1 }]);
+  }, []);
+
+  const handleDeleteItem = useCallback((itemToDelete) => {
+    setItems((prevItems) => prevItems.filter(item => item.id !== itemToDelete.id));
+  }, []);
+
+  const handleItemChange = useCallback((updatedItem) => {
+    setItems((prevItems) => prevItems.map(item => (item.id === updatedItem.id ? updatedItem : item)));
+  }, []);
+
+  const calculateTotal = () => {
+    const sub = items.reduce(
+      (acc, item) => acc + parseFloat(item.price) * parseInt(item.quantity || 1),
+      0
+    );
+    const tax = (sub * (parseFloat(taxRate) || 0)) / 100;
+    const discount = (sub * (parseFloat(discountRate) || 0)) / 100;
+    const totalValue = sub + tax - discount;
+
+    setSubTotal(sub.toFixed(2));
+    setTaxAmmount(tax.toFixed(2));
+    setDiscountAmmount(discount.toFixed(2));
+    setTotal(totalValue.toFixed(2));
   };
-  editField = (event) => {
-    this.setState({
-      [event.target.name]: event.target.value
-    });
-    this.handleCalculateTotal();
+
+  const openModal = (e) => {
+    e.preventDefault();
+    calculateTotal();
+    setIsOpen(true);
   };
-  onCurrencyChange = (selectedOption) => {
-    this.setState(selectedOption);
-  };
-  openModal = (event) => {
-    event.preventDefault()
-    this.handleCalculateTotal()
-    this.setState({isOpen: true})
-  };
-  closeModal = (event) => this.setState({isOpen: false});
-  render() {
-    return (<Form onSubmit={this.openModal}>
-      <Row>
-        <Col md={8} lg={9}>
-          <Card className="p-4 p-xl-5 my-3 my-xl-4">
-            <div className="d-flex flex-row align-items-start justify-content-between mb-3">
-              <div class="d-flex flex-column">
-                <div className="d-flex flex-column">
-                  <div class="mb-2">
-                    <span className="fw-bold">Current&nbsp;Date:&nbsp;</span>
-                    <span className="current-date">{new Date().toLocaleDateString()}</span>
-                  </div>
-                </div>
-                <div className="d-flex flex-row align-items-center">
-                  <span className="fw-bold d-block me-2">Due&nbsp;Date:</span>
-                  <Form.Control type="date" value={this.state.dateOfIssue} name={"dateOfIssue"} onChange={(event) => this.editField(event)} style={{
-                      maxWidth: '150px'
-                    }} required="required"/>
+
+  return (
+    <>
+    <center style={{ fontSize: '2rem', marginBottom: '1rem',fontWeight:"Bold",fontFamily:"Roboto",marginBottom:"-30px",padding:"0px"}}>INVOICE GENERATOR</center>
+    <form onSubmit={openModal} className="invoice-form">
+      <div className="form-row">
+        <div className="form-col-9">
+          <div className="card">
+            <div className="header">
+              <div width={100}>
+                <p><strong>Current Date:</strong> {new Date().toLocaleDateString()}</p>
+                <div className="input-group">
+                  <label><strong>Due Date:</strong></label>
+                  <input type="date" value={dateOfIssue} onChange={editField(setDateOfIssue)} required />
                 </div>
               </div>
-              <div className="d-flex flex-row align-items-center">
-                <span className="fw-bold me-2">Invoice&nbsp;Number:&nbsp;</span>
-                <Form.Control type="number" value={this.state.invoiceNumber} name={"invoiceNumber"} onChange={(event) => this.editField(event)} min="1" style={{
-                    maxWidth: '70px'
-                  }} required="required"/>
+              <div className="input-group" maxWidth={100}>
+                <label><strong>Invoice Number:</strong></label>
+                <input type="number" value={invoiceNumber} onChange={editField(setInvoiceNumber)} min="1" required />
               </div>
             </div>
-            <hr className="my-4"/>
-            <Row className="mb-5">
-              <Col>
-                <Form.Label className="fw-bold">Bill to:</Form.Label>
-                <Form.Control placeholder={"Who is this invoice to?"} rows={3} value={this.state.billTo} type="text" name="billTo" className="my-2" onChange={(event) => this.editField(event)} autoComplete="name" required="required"/>
-                <Form.Control placeholder={"Email address"} value={this.state.billToEmail} type="email" name="billToEmail" className="my-2" onChange={(event) => this.editField(event)} autoComplete="email" required="required"/>
-                <Form.Control placeholder={"Billing address"} value={this.state.billToAddress} type="text" name="billToAddress" className="my-2" autoComplete="address" onChange={(event) => this.editField(event)} required="required"/>
-              </Col>
-              <Col>
-                <Form.Label className="fw-bold">Bill from:</Form.Label>
-                <Form.Control placeholder={"Who is this invoice from?"} rows={3} value={this.state.billFrom} type="text" name="billFrom" className="my-2" onChange={(event) => this.editField(event)} autoComplete="name" required="required"/>
-                <Form.Control placeholder={"Email address"} value={this.state.billFromEmail} type="email" name="billFromEmail" className="my-2" onChange={(event) => this.editField(event)} autoComplete="email" required="required"/>
-                <Form.Control placeholder={"Billing address"} value={this.state.billFromAddress} type="text" name="billFromAddress" className="my-2" autoComplete="address" onChange={(event) => this.editField(event)} required="required"/>
-              </Col>
-            </Row>
-            <InvoiceItem onItemizedItemEdit={this.onItemizedItemEdit.bind(this)} onRowAdd={this.handleAddEvent.bind(this)} onRowDel={this.handleRowDel.bind(this)} currency={this.state.currency} items={this.state.items}/>
-            <Row className="mt-4 justify-content-end">
-              <Col lg={6}>
-                <div className="d-flex flex-row align-items-start justify-content-between">
-                  <span className="fw-bold">Subtotal:
-                  </span>
-                  <span>{this.state.currency}
-                    {this.state.subTotal}</span>
-                </div>
-                <div className="d-flex flex-row align-items-start justify-content-between mt-2">
-                  <span className="fw-bold">Discount:</span>
-                  <span>
-                    <span className="small ">({this.state.discountRate || 0}%)</span>
-                    {this.state.currency}
-                    {this.state.discountAmmount || 0}</span>
-                </div>
-                <div className="d-flex flex-row align-items-start justify-content-between mt-2">
-                  <span className="fw-bold">Tax:
-                  </span>
-                  <span>
-                    <span className="small ">({this.state.taxRate || 0}%)</span>
-                    {this.state.currency}
-                    {this.state.taxAmmount || 0}</span>
-                </div>
-                <hr/>
-                <div className="d-flex flex-row align-items-start justify-content-between" style={{
-                    fontSize: '1.125rem'
-                  }}>
-                  <span className="fw-bold">Total:
-                  </span>
-                  <span className="fw-bold">{this.state.currency}
-                    {this.state.total || 0}</span>
-                </div>
-              </Col>
-            </Row>
-            <hr className="my-4"/>
-            <Form.Label className="fw-bold">Notes:</Form.Label>
-            <Form.Control placeholder="Thanks for your business!" name="notes" value={this.state.notes} onChange={(event) => this.editField(event)} as="textarea" className="my-2" rows={1}/>
-          </Card>
-        </Col>
-        <Col md={4} lg={3}>
-          <div className="sticky-top pt-md-3 pt-xl-4">
-            <Button variant="primary" type="submit" className="d-block w-100">Review Invoice</Button>
-            <InvoiceModal showModal={this.state.isOpen} closeModal={this.closeModal} info={this.state} items={this.state.items} currency={this.state.currency} subTotal={this.state.subTotal} taxAmmount={this.state.taxAmmount} discountAmmount={this.state.discountAmmount} total={this.state.total}/>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Currency:</Form.Label>
-              <Form.Select onChange={event => this.onCurrencyChange({currency: event.target.value})} className="btn btn-light my-1" aria-label="Change Currency">
-                <option value="$">USD (United States Dollar)</option>
-                <option value="£">GBP (British Pound Sterling)</option>
-                <option value="¥">JPY (Japanese Yen)</option>
-                <option value="$">CAD (Canadian Dollar)</option>
-                <option value="$">AUD (Australian Dollar)</option>
-                <option value="$">SGD (Signapore Dollar)</option>
-                <option value="¥">CNY (Chinese Renminbi)</option>
-                <option value="₿">BTC (Bitcoin)</option>
-              </Form.Select>
-            </Form.Group>
-            <Form.Group className="my-3">
-              <Form.Label className="fw-bold">Tax rate:</Form.Label>
-              <InputGroup className="my-1 flex-nowrap">
-                <Form.Control name="taxRate" type="number" value={this.state.taxRate} onChange={(event) => this.editField(event)} className="bg-white border" placeholder="0.0" min="0.00" step="0.01" max="100.00"/>
-                <InputGroup.Text className="bg-light fw-bold text-secondary small">
-                  %
-                </InputGroup.Text>
-              </InputGroup>
-            </Form.Group>
-            <Form.Group className="my-3">
-              <Form.Label className="fw-bold">Discount rate:</Form.Label>
-              <InputGroup className="my-1 flex-nowrap">
-                <Form.Control name="discountRate" type="number" value={this.state.discountRate} onChange={(event) => this.editField(event)} className="bg-white border" placeholder="0.0" min="0.00" step="0.01" max="100.00"/>
-                <InputGroup.Text className="bg-light fw-bold text-secondary small">
-                  %
-                </InputGroup.Text>
-              </InputGroup>
-            </Form.Group>
+
+            <hr />
+
+            <div className="form-row">
+              <div className="form-col">
+                <label><strong>Bill to:</strong></label>
+                <input type="text" placeholder="Who is this invoice to?" value={billTo} onChange={editField(setBillTo)} required />
+                <input type="email" placeholder="Email address" value={billToEmail} onChange={editField(setBillToEmail)} required />
+                <input type="text" placeholder="Billing address" value={billToAddress} onChange={editField(setBillToAddress)} required />
+              </div>
+              <div className="form-col">
+                <label><strong>Bill from:</strong></label>
+                <input type="text" placeholder="Who is this invoice from?" value={billFrom} onChange={editField(setBillFrom)} required />
+                <input type="email" placeholder="Email address" value={billFromEmail} onChange={editField(setBillFromEmail)} required />
+                <input type="text" placeholder="Billing address" value={billFromAddress} onChange={editField(setBillFromAddress)} required />
+              </div>
+            </div>
+
+            <InvoiceItem
+              items={items}
+              onItemizedItemEdit={handleItemChange}
+              onRowAdd={handleAddItem}
+              onRowDel={handleDeleteItem}
+              currency={currency}
+            />
+
+            <div className="summary">
+              <p><strong>Subtotal:</strong> {currency}{subTotal}</p>
+              <p><strong>Discount:</strong> {discountRate || 0}% {currency}{discountAmmount}</p>
+              <p><strong>Tax:</strong> {taxRate || 0}% {currency}{taxAmmount}</p>
+              <hr />
+              <p><strong>Total:</strong> {currency}{total}</p>
+            </div>
+
+            <label><strong>Notes:</strong></label>
+            <textarea value={notes} onChange={editField(setNotes)} placeholder="Thanks for your business!" />
           </div>
-        </Col>
-      </Row>
-    </Form>)
-  }
-}
+        </div>
+
+        <div className="form-col-3">
+          <button type="submit">Review Invoice</button>
+
+          <InvoiceModal
+            showModal={isOpen}
+            closeModal={() => setIsOpen(false)}
+            info={{
+              currency, dateOfIssue, invoiceNumber,
+              billTo, billToEmail, billToAddress,
+              billFrom, billFromEmail, billFromAddress,
+              notes
+            }}
+            items={items}
+            currency={currency}
+            subTotal={subTotal}
+            taxAmmount={taxAmmount}
+            discountAmmount={discountAmmount}
+            total={total}
+          />
+
+          <label><strong>Currency:</strong></label>
+          <select onChange={(e) => setCurrency(e.target.value)} value={currency}>
+            <option value="₹">INR</option>
+            <option value="$">USD</option>
+            <option value="£">GBP</option>
+            <option value="¥">JPY</option>
+            <option value="$">CAD</option>
+            <option value="$">AUD</option>
+            <option value="$">SGD</option>
+            <option value="¥">CNY</option>
+            <option value="₿">BTC</option>
+          </select>
+
+          <label><strong>Tax rate (%):</strong></label>
+          <input type="number" min="0" max="100" step="0.01" value={taxRate} onChange={editField(setTaxRate)} />
+
+          <label><strong>Discount rate (%):</strong></label>
+          <input type="number" min="0" max="100" step="0.01" value={discountRate} onChange={editField(setDiscountRate)} />
+        </div>
+      </div>
+    </form>
+    </>
+  );
+};
 
 export default InvoiceForm;
